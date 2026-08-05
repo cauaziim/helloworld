@@ -1,105 +1,257 @@
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(const LoginApp());
+  runApp(const MyGamesApp());
 }
 
-class LoginApp extends StatelessWidget {
-  const LoginApp({super.key});
+class Jogo {
+  String nome;
+  bool jogado;
+  bool favorito;
+
+  Jogo({required this.nome, this.jogado = false, this.favorito = false});
+}
+
+class MyGamesApp extends StatelessWidget {
+  const MyGamesApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: LoginScreen(),
+
+      title: "polystation",
+
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+
+        useMaterial3: true,
+      ),
+
+      home: const Principal(),
     );
   }
 }
 
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
+class Principal extends StatefulWidget {
+  const Principal({super.key});
+
+  @override
+  State<Principal> createState() => _PrincipalState();
+}
+
+class _PrincipalState extends State<Principal> {
+  int index = 0;
+
+  final pesquisa = TextEditingController();
+
+  final List<Jogo> jogos = [
+    Jogo(nome: "Minecraft"),
+
+    Jogo(nome: "GTA V"),
+
+    Jogo(nome: "Fortnite"),
+
+    Jogo(nome: "Valorant"),
+
+    Jogo(nome: "Rocket League"),
+
+    Jogo(nome: "EA Sports FC 25"),
+
+    Jogo(nome: "God of War"),
+
+    Jogo(nome: "Red Dead Redemption 2"),
+  ];
 
   @override
   Widget build(BuildContext context) {
-
-    double largura = MediaQuery.of(context).size.width;
-    double altura = MediaQuery.of(context).size.height;
-
     return Scaffold(
-      body: SafeArea(
-        // SafeArea
-        child: SingleChildScrollView(
-          // Scroll (evita overflow)
-          child: Container(
-            width: largura,
-            constraints: BoxConstraints(minHeight: altura),
-            padding: EdgeInsets.symmetric(horizontal: largura * 0.08),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.account_circle,
-                  size: largura * 0.25,
-                  color: Colors.blue,
-                ),
+      appBar: AppBar(title: const Text("polystation"), centerTitle: true),
 
-                Text(
-                  "Login",
-                  style: TextStyle(
-                    fontSize: largura * 0.08,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+      body: telas()[index],
 
-                SizedBox(height: altura * 0.05),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: index,
 
-                TextField(
-                  decoration: InputDecoration(
-                    labelText: "Usuário",
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
+        onDestinationSelected: (valor) {
+          setState(() {
+            index = valor;
+          });
+        },
 
-                SizedBox(height: altura * 0.02),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home), label: "Inicio"),
 
-                TextField(
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: "Senha",
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
+          NavigationDestination(
+            icon: Icon(Icons.sports_esports),
 
-                SizedBox(height: altura * 0.04),
+            label: "Jogos",
+          ),
 
-                //Botão
-                SizedBox(
-                  //pega a largura TODA da tela :D
-                  width: double.infinity,
-                  height: altura * 0.07,
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    child: Text(
-                      "Entrar",
-                      style: TextStyle(fontSize: largura * 0.045),
-                    ),
-                  ),
-                ),
+          NavigationDestination(icon: Icon(Icons.favorite), label: "Favoritos"),
 
-                SizedBox(height: altura * 0.4),
+          NavigationDestination(icon: Icon(Icons.person), label: "Perfil"),
+        ],
+      ),
+    );
+  }
 
-                Text(
-                  "Esqueceu a senha?",
-                  style: TextStyle(fontSize: largura * 0.035),
-                ),
-              ],
+  List<Widget> telas() {
+    return [inicio(), jogosTela(), favoritos(), perfil()];
+  }
+
+  Widget inicio() {
+    int jogados = jogos.where((j) => j.jogado).length;
+
+    return Padding(
+      padding: const EdgeInsets.all(20),
+
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+
+        children: [
+          const Text(
+            "Bem vindo ao polystation",
+
+            style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+          ),
+
+          const SizedBox(height: 20),
+
+          Text(
+            "Jogos jogados: $jogados/${jogos.length}",
+
+            style: const TextStyle(fontSize: 18),
+          ),
+
+          const SizedBox(height: 20),
+
+          LinearProgressIndicator(value: jogados / jogos.length, minHeight: 10),
+        ],
+      ),
+    );
+  }
+
+  Widget jogosTela() {
+    List<Jogo> filtrados = jogos.where((j) {
+      return j.nome.toLowerCase().contains(pesquisa.text.toLowerCase());
+    }).toList();
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(15),
+
+          child: TextField(
+            controller: pesquisa,
+
+            onChanged: (valor) {
+              setState(() {});
+            },
+
+            decoration: InputDecoration(
+              hintText: "Pesquisar jogo",
+
+              prefixIcon: const Icon(Icons.search),
+
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
             ),
           ),
         ),
+
+        Expanded(
+          child: ListView.builder(
+            itemCount: filtrados.length,
+
+            itemBuilder: (context, i) {
+              Jogo jogo = filtrados[i];
+
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+
+                child: ListTile(
+                  title: Text(jogo.nome),
+
+                  leading: const Icon(Icons.gamepad),
+
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          jogo.favorito
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+
+                          color: Colors.red,
+                        ),
+
+                        onPressed: () {
+                          setState(() {
+                            jogo.favorito = !jogo.favorito;
+                          });
+                        },
+                      ),
+
+                      Checkbox(
+                        value: jogo.jogado,
+
+                        onChanged: (valor) {
+                          setState(() {
+                            jogo.jogado = valor!;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget favoritos() {
+    List<Jogo> lista = jogos.where((j) => j.favorito).toList();
+
+    if (lista.isEmpty) {
+      return const Center(child: Text("Nenhum favorito"));
+    }
+
+    return ListView(
+      children: lista
+          .map(
+            (j) => ListTile(
+              leading: const Icon(Icons.favorite, color: Colors.red),
+
+              title: Text(j.nome),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget perfil() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+
+        children: [
+          CircleAvatar(radius: 45, child: Icon(Icons.person, size: 50)),
+
+          SizedBox(height: 15),
+
+          Text(
+            "Cauãzinho",
+
+            style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+          ),
+        ],
       ),
     );
   }
