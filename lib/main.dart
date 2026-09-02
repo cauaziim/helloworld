@@ -12,7 +12,7 @@ class MeuApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Minha Localização',
+      title: 'Qual lugar está mais perto?',
       home: const LocalizacaoPage(),
     );
   }
@@ -26,87 +26,111 @@ class LocalizacaoPage extends StatefulWidget {
 }
 
 class _LocalizacaoPageState extends State<LocalizacaoPage> {
-  double? latitude = 0;
-  double? longitude = 0;
+  String resultado = 'Clique no botão para calcular a distância';
 
-  Future<void> _buscarLocalizacao() async {
+  // COORDENADAS DA SUA CASA
+  // Troque pelas coordenadas reais da sua casa
+  double latitudeCasa = -21.442010;
+  double longitudeCasa = -47.009005;
+
+  Future<void> calcularDistancia() async {
     bool servicoAtivo = await Geolocator.isLocationServiceEnabled();
 
     if (!servicoAtivo) {
-      await Geolocator.openLocationSettings();
+      setState(() {
+        resultado = 'Ative o GPS do celular.';
+      });
       return;
     }
 
-    LocationPermission permissao = await Geolocator.checkPermission();
+    LocationPermission permissao =
+        await Geolocator.checkPermission();
 
     if (permissao == LocationPermission.denied) {
       permissao = await Geolocator.requestPermission();
     }
 
-    if (permissao == LocationPermission.denied ||
-        permissao == LocationPermission.deniedForever) {
+    if (permissao == LocationPermission.denied) {
+      setState(() {
+        resultado = 'Permissão de localização negada.';
+      });
       return;
     }
 
-    Position posicao = await Geolocator.getCurrentPosition();
+    if (permissao == LocationPermission.deniedForever) {
+      setState(() {
+        resultado =
+            'A permissão foi negada permanentemente. Ative nas configurações.';
+      });
+      return;
+    }
+
+    Position posicaoAtual =
+        await Geolocator.getCurrentPosition();
+
+    double distancia = Geolocator.distanceBetween(
+      posicaoAtual.latitude,
+      posicaoAtual.longitude,
+      latitudeCasa,
+      longitudeCasa,
+    );
+
+    double distanciaKm = distancia / 1000;
 
     setState(() {
-      latitude = posicao.latitude;
-      longitude = posicao.longitude;
+      resultado =
+          'Distância até sua casa: ${distanciaKm.toStringAsFixed(2)} km';
     });
-
-    print('Latitude: $latitude');
-    print('Longitude: $longitude');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Minha Localização'),
+        title: const Text('Qual lugar está mais perto?'),
+        centerTitle: true,
       ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const Icon(
                 Icons.location_on,
-                size: 100,
-                color: Colors.red,
+                size: 90,
+                color: Colors.blue,
               ),
 
               const SizedBox(height: 20),
 
               const Text(
-                'Localização Atual:',
+                'Distância entre a escola e minha casa',
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              Text(
+                resultado,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
                 ),
               ),
 
               const SizedBox(height: 30),
 
-              Text(
-                'Latitude: $latitude',
-                style: const TextStyle(fontSize: 18),
-              ),
-
-              const SizedBox(height: 10),
-
-              Text(
-                'Longitude: $longitude',
-                style: const TextStyle(fontSize: 15),
-              ),
-
-              const SizedBox(height: 30),
-
               ElevatedButton(
-                onPressed: _buscarLocalizacao,
-                child: const Text('Atualizar Localização'),
+                onPressed: calcularDistancia,
+                child: const Text(
+                  'Calcular distância',
+                  style: TextStyle(fontSize: 18),
+                ),
               ),
             ],
           ),
