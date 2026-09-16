@@ -1,232 +1,131 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:sensors_plus/sensors_plus.dart';
+import 'dart:math';
 
 void main() {
-  runApp(const MeuApp());
+  runApp(const MyApp());
 }
 
-class MeuApp extends StatelessWidget {
-  const MeuApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Meu mapa',
-      home: const MapaPage(),
+      home: const SensorPage(),
     );
   }
 }
 
-class MapaPage extends StatefulWidget {
-  const MapaPage({super.key});
+class SensorPage extends StatefulWidget {
+  const SensorPage({super.key});
 
   @override
-  State<MapaPage> createState() => _MapaPageState();
+  State<SensorPage> createState() => _SensorPageState();
 }
 
-class _MapaPageState extends State<MapaPage> {
-  final MapController _mapController = MapController();
+class _SensorPageState extends State<SensorPage> {
+  double x = 0;
+  double y = 0;
+  double z = 0;
 
-  LatLng? _localizacaoAtual;
-  bool _carregando = true;
-  bool _atualizando = false;
+  bool movimento = false;
 
   @override
   void initState() {
     super.initState();
-    _iniciarLocalizacao();
-  }
 
-  // Inicia a localização
-  Future<void> _iniciarLocalizacao() async {
-    bool servicoAtivo = await Geolocator.isLocationServiceEnabled();
-
-    if (!servicoAtivo) {
-      setState(() {
-        _carregando = false;
-      });
-      return;
-    }
-
-    LocationPermission permissao = await Geolocator.checkPermission();
-
-    if (permissao == LocationPermission.denied) {
-      permissao = await Geolocator.requestPermission();
-    }
-
-    if (permissao == LocationPermission.denied ||
-        permissao == LocationPermission.deniedForever) {
-      setState(() {
-        _carregando = false;
-      });
-      return;
-    }
-
-    await _atualizarLocalizacao();
-
-    // Continua acompanhando a localização
-    Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 5,
-      ),
-    ).listen((Position posicao) {
-      final novaLocalizacao = LatLng(
-        posicao.latitude,
-        posicao.longitude,
+    accelerometerEventStream().listen((event) {
+      double aceleracao = sqrt(
+        (event.x * event.x) +
+        (event.y * event.y) +
+        (event.z * event.z),
       );
 
       setState(() {
-        _localizacaoAtual = novaLocalizacao;
+        x = event.x;
+        y = event.y;
+        z = event.z;
+
+        // Detecta movimento
+        if (aceleracao > 12) {
+          movimento = true;
+        } else {
+          movimento = false;
+        }
       });
     });
-  }
-
-  // Função para atualizar a localização manualmente
-  Future<void> _atualizarLocalizacao() async {
-    setState(() {
-      _atualizando = true;
-    });
-
-    try {
-      Position posicao = await Geolocator.getCurrentPosition();
-
-      final novaLocalizacao = LatLng(
-        posicao.latitude,
-        posicao.longitude,
-      );
-
-      setState(() {
-        _localizacaoAtual = novaLocalizacao;
-        _carregando = false;
-        _atualizando = false;
-      });
-
-      // Centraliza o mapa na nova localização
-      _mapController.move(
-        novaLocalizacao,
-        16,
-      );
-
-      // Mostra mensagem de sucesso
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Localização atualizada!'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _atualizando = false;
-        _carregando = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Não foi possível atualizar a localização.'),
-          ),
-        );
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Minha localização'),
+        title: const Text('Detector de Movimento'),
+        centerTitle: true,
       ),
 
-      body: Stack(
-        children: [
-          FlutterMap(
-            mapController: _mapController,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
 
-            options: const MapOptions(
-              initialCenter: LatLng(
-                -21.442010,
-                -47.009005,
+            // Informação do movimento
+            Icon(
+              movimento ? Icons.directions_run : Icons.phone_android,
+              size: 80,
+            ),
+
+            const SizedBox(height: 20),
+
+            Text(
+              movimento
+                  ? 'MOVIMENTO DETECTADO!'
+                  : 'Celular parado',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
               ),
-              initialZoom: 13,
             ),
 
-            children: [
-              TileLayer(
-                urlTemplate:
-                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName:
-                    'com.example.mapa_flutter',
+            const SizedBox(height: 40),
+
+            const Text(
+              'Valores do Acelerômetro',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
               ),
-
-              MarkerLayer(
-                markers: [
-                  if (_localizacaoAtual != null)
-                    Marker(
-                      point: _localizacaoAtual!,
-                      width: 80,
-                      height: 80,
-                      child: const Icon(
-                        Icons.location_pin,
-                        color: Color.fromARGB(255, 89, 205, 40),
-                        size: 55,
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-
-          // Indicador de carregamento inicial
-          if (_carregando)
-            const Center(
-              child: CircularProgressIndicator(),
             ),
 
-          // Botão para atualizar localização
-          Positioned(
-            right: 20,
-            bottom: 90,
-            child: FloatingActionButton(
-              onPressed: _atualizando
-                  ? null
-                  : () {
-                      _atualizarLocalizacao();
-                    },
-              child: _atualizando
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 3,
-                      ),
-                    )
-                  : const Icon(Icons.refresh),
-            ),
-          ),
+            const SizedBox(height: 20),
 
-          // Botão para voltar para minha localização
-          Positioned(
-            right: 20,
-            bottom: 20,
-            child: FloatingActionButton(
-              onPressed: () {
-                if (_localizacaoAtual != null) {
-                  _mapController.move(
-                    _localizacaoAtual!,
-                    16,
-                  );
-                }
-              },
-              child: const Icon(Icons.my_location),
+            Text(
+              'X: ${x.toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 22),
             ),
-          ),
-        ],
+
+            Text(
+              'Y: ${y.toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 22),
+            ),
+
+            Text(
+              'Z: ${z.toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 22),
+            ),
+
+            const SizedBox(height: 30),
+
+            Text(
+              movimento
+                  ? 'O dispositivo está sendo movimentado.'
+                  : 'Nenhum movimento detectado.',
+              style: const TextStyle(fontSize: 16),
+            ),
+          ],
+        ),
       ),
     );
   }
