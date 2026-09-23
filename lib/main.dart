@@ -1,442 +1,235 @@
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
+
+import 'tarefa.dart';
+import 'database_helper.dart';
 
 void main() {
-  runApp(const GameStoreApp());
+  runApp(const MeuAplicativo());
 }
 
-class GameStoreApp extends StatelessWidget {
-  const GameStoreApp({super.key});
+class MeuAplicativo extends StatelessWidget {
+  const MeuAplicativo({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'sabino Store',
-      theme: ThemeData.dark(),
-      home: const HomePage(),
+      title: 'Tarefas',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        useMaterial3: true,
+      ),
+      home: const TarefasPage(),
     );
   }
 }
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class TarefasPage extends StatefulWidget {
+  const TarefasPage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<TarefasPage> createState() => _TarefasPageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  int _paginaAtual = 0;
+class _TarefasPageState extends State<TarefasPage> {
+  final DatabaseHelper dbHelper = DatabaseHelper();
 
-  // Player do áudio
-  final AudioPlayer player = AudioPlayer();
+  final TextEditingController descricaoController = TextEditingController();
 
-  final List<Map<String, dynamic>> jogos = [
-    {
-      "nome": "GTA V",
-      "preco": "R\$ 89,90",
-      "imagem":
-          "https://upload.wikimedia.org/wikipedia/en/a/a5/Grand_Theft_Auto_V.png",
-    },
-    {
-      "nome": "Minecraft",
-      "preco": "R\$ 99,90",
-      "imagem":
-          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQEEvFIKXrKOJuOYTRQisa_w-digVJN3v7-RA&s",
-    },
-    {
-      "nome": "EA SPORTS FC",
-      "preco": "R\$ 349,90",
-      "imagem":
-          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTX-8VqM75SutGX4BQSF67pwTScwnXl6zKznA&s",
-    },
-    {
-      "nome": "Free Fire",
-      "preco": "Grátis",
-      "imagem":
-          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTl8ChEz5aiEtyp5HkGleh0-J3JH8tUGCF3Hw&s",
-    },
-    {
-      "nome": "Fortnite",
-      "preco": "Grátis",
-      "imagem":
-          "https://cdn.ome.lt/uploads/conteudo/fotos/FNBR_40-00_C7S2_EGS_Launcher_FN_Blade_2560x1440_2560x1440-325670227bc348a4a289570c1f099640.jpg",
-    },
-    {
-      "nome": "Call of Duty",
-      "preco": "R\$ 279,90",
-      "imagem":
-          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQWOzfw4UIlYMtY3GcUNK_wHrhProYeHEbEdQ&s",
-    },
-  ];
+  String prioridadeSelecionada = 'Média';
 
-  final List<Map<String, dynamic>> carrinho = [];
+  List<Tarefa> tarefas = [];
 
-  // Toca o som
-  Future<void> tocarSom() async {
-    await player.play(
-      AssetSource('audio/toque.mp3'),
-    );
+  @override
+  void initState() {
+    super.initState();
+
+    carregarTarefas();
   }
 
-  // Calcula o valor total
-  double calcularTotal() {
-    double total = 0;
+  // READ
+  Future<void> carregarTarefas() async {
+    final resultado = await dbHelper.getTarefas();
 
-    for (var jogo in carrinho) {
-      String preco = jogo["preco"];
+    setState(() {
+      tarefas = resultado;
+    });
+  }
 
-      if (preco != "Grátis") {
-        preco = preco
-            .replaceAll("R\$", "")
-            .replaceAll(".", "")
-            .replaceAll(",", ".")
-            .trim();
+  // CREATE
+  Future<void> adicionarTarefa() async {
+    final descricao = descricaoController.text.trim();
 
-        total += double.tryParse(preco) ?? 0;
-      }
+    if (descricao.isEmpty) {
+      return;
     }
 
-    return total;
+    final tarefa = Tarefa(
+      descricao: descricao,
+      prioridade: prioridadeSelecionada,
+      status: 'Pendente',
+    );
+
+    await dbHelper.insertTarefa(tarefa);
+
+    descricaoController.clear();
+
+    setState(() {
+      prioridadeSelecionada = 'Média';
+    });
+
+    await carregarTarefas();
   }
 
-  @override
-  void dispose() {
-    player.dispose();
-    super.dispose();
+  // UPDATE
+  Future<void> concluirTarefa(Tarefa tarefa) async {
+    final tarefaAtualizada = Tarefa(
+      id: tarefa.id,
+      descricao: tarefa.descricao,
+      prioridade: tarefa.prioridade,
+      status: 'Concluída',
+    );
+
+    await dbHelper.updateTarefa(tarefaAtualizada);
+
+    await carregarTarefas();
+  }
+
+  // DELETE
+  Future<void> excluirTarefa(int id) async {
+    await dbHelper.deleteTarefa(id);
+
+    await carregarTarefas();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      appBar: AppBar(title: const Text('Minhas Tarefas')),
 
-      appBar: AppBar(
-        title: const Text("🎮 Game Store"),
-        backgroundColor: Colors.green,
-        centerTitle: true,
-      ),
+      body: Column(
+        children: [
+          // FORMULÁRIO
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                TextField(
+                  controller: descricaoController,
+                  decoration: const InputDecoration(
+                    labelText: 'Descrição da tarefa',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
 
-      body: _buildBody(),
+                const SizedBox(height: 12),
 
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _paginaAtual,
-        onTap: (index) {
-          setState(() {
-            _paginaAtual = index;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.grey.shade900,
-        selectedItemColor: Colors.green,
-        unselectedItemColor: Colors.white,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: "Início",
+                DropdownButtonFormField<String>(
+                  initialValue: prioridadeSelecionada,
+                  decoration: const InputDecoration(
+                    labelText: 'Prioridade',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Baixa', child: Text('Baixa')),
+                    DropdownMenuItem(value: 'Média', child: Text('Média')),
+                    DropdownMenuItem(value: 'Alta', child: Text('Alta')),
+                  ],
+                  onChanged: (valor) {
+                    if (valor != null) {
+                      setState(() {
+                        prioridadeSelecionada = valor;
+                      });
+                    }
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: adicionarTarefa,
+                    child: const Text('ADICIONAR TAREFA'),
+                  ),
+                ),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.videogame_asset),
-            label: "Jogos",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: "Carrinho",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: "Perfil",
+
+          const Divider(),
+
+          // LISTAGEM
+          Expanded(
+            child: tarefas.isEmpty
+                ? const Center(child: Text('Nenhuma tarefa cadastrada.'))
+                : ListView.builder(
+                    itemCount: tarefas.length,
+                    itemBuilder: (context, index) {
+                      final tarefa = tarefas[index];
+
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
+                        ),
+
+                        child: ListTile(
+                          leading: CircleAvatar(child: Text('${tarefa.id}')),
+
+                          title: Text(
+                            tarefa.descricao,
+                            style: TextStyle(
+                              decoration: tarefa.status == 'Concluída'
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
+                          ),
+
+                          subtitle: Text(
+                            'Prioridade: ${tarefa.prioridade}\n'
+                            'Status: ${tarefa.status}',
+                          ),
+
+                          isThreeLine: true,
+
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Concluir
+                              if (tarefa.status != 'Concluída')
+                                IconButton(
+                                  icon: const Icon(Icons.check),
+                                  tooltip: 'Concluir',
+                                  onPressed: () {
+                                    concluirTarefa(tarefa);
+                                  },
+                                ),
+
+                              // Excluir
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                tooltip: 'Excluir',
+                                onPressed: () {
+                                  excluirTarefa(tarefa.id!);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBody() {
-    switch (_paginaAtual) {
-      case 0:
-        return telaInicio();
+  @override
+  void dispose() {
+    descricaoController.dispose();
 
-      case 1:
-        return telaJogos();
-
-      case 2:
-        if (carrinho.isEmpty) {
-          return const Center(
-            child: Text(
-              "🛒 Carrinho vazio",
-              style: TextStyle(fontSize: 24),
-            ),
-          );
-        }
-
-        return Column(
-          children: [
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(10),
-                itemCount: carrinho.length,
-                itemBuilder: (context, index) {
-                  final jogo = carrinho[index];
-
-                  return Card(
-                    color: Colors.grey.shade900,
-                    margin: const EdgeInsets.only(bottom: 10),
-                    child: ListTile(
-                      leading: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          jogo["imagem"],
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-
-                      title: Text(
-                        jogo["nome"],
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
-                      subtitle: Text(
-                        jogo["preco"],
-                        style: const TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
-                      trailing: IconButton(
-                        icon: const Icon(
-                          Icons.delete,
-                          color: Colors.red,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            carrinho.removeAt(index);
-                          });
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                "Jogo removido do carrinho",
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              color: Colors.grey.shade900,
-              child: Column(
-                children: [
-                  Text(
-                    "Total da compra: R\$ ${calcularTotal().toStringAsFixed(2).replaceAll(".", ",")}",
-                    style: const TextStyle(
-                      fontSize: 22,
-                      color: Colors.green,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                      ),
-
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              "Compra realizada! Total: R\$ ${calcularTotal().toStringAsFixed(2).replaceAll(".", ",")}",
-                            ),
-                          ),
-                        );
-
-                        setState(() {
-                          carrinho.clear();
-                        });
-                      },
-
-                      icon: const Icon(Icons.payment),
-                      label: const Text("Finalizar Compra"),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-
-      case 3:
-        return const Center(
-          child: Text(
-            "👤 Perfil",
-            style: TextStyle(fontSize: 24),
-          ),
-        );
-
-      default:
-        return telaInicio();
-    }
-  }
-
-  Widget telaInicio() {
-    return const Center(
-      child: Text(
-        "Bem-vindo à Game Store 🎮",
-        style: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  Widget telaJogos() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(15),
-          child: TextField(
-            decoration: InputDecoration(
-              hintText: "Pesquisar jogo...",
-              prefixIcon: const Icon(Icons.search),
-              filled: true,
-              fillColor: Colors.grey.shade900,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-        ),
-
-        Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: jogos.length,
-
-            gridDelegate:
-                const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: .63,
-            ),
-
-            itemBuilder: (context, index) {
-              final jogo = jogos[index];
-
-              return Card(
-                color: Colors.grey.shade900,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(18),
-                        ),
-
-                        child: Image.network(
-                          jogo["imagem"],
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-
-                    Padding(
-                      padding: const EdgeInsets.all(10),
-
-                      child: Column(
-                        children: [
-                          Text(
-                            jogo["nome"],
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
-
-                          const SizedBox(height: 5),
-
-                          Text(
-                            jogo["preco"],
-                            style: const TextStyle(
-                              color: Colors.green,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 20,
-                            ),
-                          ),
-
-                          const SizedBox(height: 10),
-
-                          SizedBox(
-                            width: double.infinity,
-
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                              ),
-
-                              onPressed: () async {
-                                // Toca o som
-                                await tocarSom();
-
-                                // Adiciona ao carrinho
-                                setState(() {
-                                  carrinho.add(jogo);
-                                });
-
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      "${jogo["nome"]} adicionado ao carrinho!",
-                                    ),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              },
-
-                              icon: const Icon(
-                                Icons.shopping_cart,
-                              ),
-
-                              label: const Text("Comprar"),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
+    super.dispose();
   }
 }
