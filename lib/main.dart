@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'tarefa.dart';
-import 'database_helper.dart';
+import 'bancointerno/tarefa.dart';
+import 'bancointerno/database_helper.dart';
 
 void main() {
   runApp(const MeuAplicativo());
